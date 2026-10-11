@@ -1,0 +1,164 @@
+<div class="page-wrapper">
+  <div class="component-wrapper">
+    <header class="stats-toolbar">
+      <date-picker-input
+        [label]="T.F.STATISTICS.DATE_LABEL | translate"
+        [max]="maxDay"
+        [ngModel]="selectedDay()"
+        (ngModelChange)="onDayChange($event)"
+      ></date-picker-input>
+
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="T.F.STATISTICS.REFRESH | translate"
+        [matTooltip]="T.F.STATISTICS.REFRESH | translate"
+        (click)="refresh()"
+      >
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </header>
+
+    <section class="stats-section">
+      <div class="section-heading">
+        <h2>{{ T.F.STATISTICS.TIME_PER_TASK | translate }}</h2>
+        @if (totalForDay() > 0) {
+          <span class="total-label">
+            {{
+              T.F.STATISTICS.TOTAL_FOR_DAY
+                | translate: { time: (totalForDay() | msToString) }
+            }}
+          </span>
+        }
+      </div>
+
+      @if (pieChartData().labels?.length) {
+        <lazy-chart
+          type="pie"
+          [labels]="pieChartData().labels"
+          [datasets]="pieChartData().datasets"
+          [options]="pieChartOptions"
+          height="360px"
+          [shareFileName]="'time-per-task.png'"
+        ></lazy-chart>
+
+        @if (colorRows().length) {
+          <div class="color-editor">
+            <h3 class="color-editor-title">
+              {{ T.F.STATISTICS.COLORS_TITLE | translate }}
+            </h3>
+            <div class="color-rows">
+              @for (row of colorRows(); track row.key) {
+                <div class="color-row">
+                  <span
+                    class="color-name"
+                    [title]="row.label"
+                  >
+                    {{ row.label }}
+                  </span>
+                  <input-color-picker
+                    [value]="row.color"
+                    (valueChange)="onColorChange(row.key, $event)"
+                  ></input-color-picker>
+                  <input
+                    class="color-code"
+                    type="text"
+                    spellcheck="false"
+                    autocomplete="off"
+                    [ngModel]="colorDrafts()[row.key] ?? row.color"
+                    (ngModelChange)="onColorChange(row.key, $event)"
+                    (blur)="onColorBlur(row.key)"
+                    [ngModelOptions]="{ standalone: true }"
+                    [attr.aria-label]="T.F.STATISTICS.COLOR_CODE | translate"
+                    [attr.placeholder]="T.F.STATISTICS.COLOR_CODE | translate"
+                  />
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [matTooltip]="T.F.STATISTICS.RESET_COLOR | translate"
+                    [attr.aria-label]="T.F.STATISTICS.RESET_COLOR | translate"
+                    (click)="resetColor(row.key)"
+                  >
+                    <mat-icon>restart_alt</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      } @else {
+        <p class="empty-state">{{ T.F.STATISTICS.NO_DATA | translate }}</p>
+      }
+    </section>
+
+    <section class="stats-section">
+      <h2>{{ T.F.STATISTICS.SAME_NAME_TOTAL | translate }}</h2>
+
+      @if (sameNameRows().length) {
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ T.F.STATISTICS.COL_TASK | translate }}</th>
+              <th
+                scope="col"
+                class="is-bar"
+              >
+                {{ T.F.STATISTICS.COL_SHARE | translate }}
+              </th>
+              <th
+                scope="col"
+                class="is-numeric"
+              >
+                {{ T.F.STATISTICS.COL_TOTAL | translate }}
+              </th>
+              <th
+                scope="col"
+                class="is-numeric"
+              >
+                {{ T.F.STATISTICS.COL_COUNT | translate }}
+              </th>
+              <th
+                scope="col"
+                class="is-actions"
+              >
+                {{ T.F.STATISTICS.COL_MERGE | translate }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of sameNameRows(); track entry.row.key) {
+              <tr>
+                <td>{{ entry.row.title }}</td>
+                <td class="is-bar">
+                  <div class="bar-track">
+                    <div
+                      class="bar-fill"
+                      [style.width.%]="entry.barPercent"
+                    ></div>
+                  </div>
+                </td>
+                <td class="is-numeric">{{ entry.row.totalTimeSpent | msToString }}</td>
+                <td class="is-numeric">{{ entry.row.taskCount }}</td>
+                <td class="is-actions">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    data-test="merge-task-name-btn"
+                    [disabled]="isMerging()"
+                    [matTooltip]="T.F.STATISTICS.MERGE_INTO | translate"
+                    [attr.aria-label]="T.F.STATISTICS.MERGE_INTO | translate"
+                    (click)="mergeInto(entry.row)"
+                  >
+                    <mat-icon>call_merge</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty-state">{{ T.F.STATISTICS.NO_DATA | translate }}</p>
+      }
+    </section>
+  </div>
+</div>

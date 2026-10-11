@@ -1,0 +1,50 @@
+.hint {
+  margin: 0 0 var(--s) 0;
+  color: var(--text-color-muted);
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-quarter);
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.candidate-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s);
+  padding: var(--s-half) var(--s);
+  border: none;
+  border-radius: var(--card-border-radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--state-hover);
+  }
+}
+
+.candidate-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-meta {
+  flex-shrink: 0;
+  color: var(--text-color-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  margin: 0;
+  font-style: italic;
+  opacity: var(--muted-alpha);
+}

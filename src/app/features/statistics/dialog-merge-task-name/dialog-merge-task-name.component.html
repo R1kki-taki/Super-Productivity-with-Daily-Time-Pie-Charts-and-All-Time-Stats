@@ -1,0 +1,28 @@
+<h1 mat-dialog-title>{{ T.F.STATISTICS.MERGE_TITLE | translate }}</h1>
+
+<mat-dialog-content>
+  <p class="hint">
+    {{ T.F.STATISTICS.MERGE_HINT | translate: { source: data.sourceTitle } }}
+  </p>
+
+  @if (data.candidates.length) {
+    <div class="candidate-list">
+      @for (candidate of data.candidates; track candidate.key) {
+        <button type="button" class="candidate-row" (click)="choose(candidate)">
+          <span class="candidate-title">{{ candidate.title }}</span>
+          <span class="candidate-meta">
+            {{ candidate.taskCount }} · {{ candidate.totalTimeSpent | msToString }}
+          </span>
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="empty-state">{{ T.F.STATISTICS.MERGE_EMPTY | translate }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="close()">
+    {{ T.G.CANCEL | translate }}
+  </button>
+</mat-dialog-actions>
