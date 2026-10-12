@@ -23,6 +23,10 @@ packages/plugin-api/dist/**
 docs/ai/tmp
 /output
 
+# locally built Windows installers (the portable exe is ~114 MB, above GitHub's
+# 100 MB file limit) - distribute them via GitHub Releases instead
+/*.exe
+
 # dependencies
 /node_modules
 

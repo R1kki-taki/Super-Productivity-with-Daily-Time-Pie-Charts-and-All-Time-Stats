@@ -47,6 +47,7 @@
     "dist:mac:mas:x64": "cp tools/mac-profiles/mas.provisionprofile embedded.provisionprofile; electron-builder --mac mas --config=build/electron-builder.mas.yaml --x64",
     "dist:only": "electron-builder",
     "dist:win": "npm run buildAllElectron:noTests:prod && electron-builder --win",
+    "dist:win:portable": "npm run buildAllElectron:noTests:prod && electron-builder --win portable",
     "dist:win:appx": "npm run buildAllElectron:prod && electron-builder --win --config=build/electron-builder.appx.yaml",
     "dist:win:only": "electron-builder --win",
     "dist:win:store": "git pull && npm run && copy electron-builder.win-store.yaml electron-builder.yaml && npm run dist:win && git checkout electron-builder.yaml || git checkout electron-builder.yaml",

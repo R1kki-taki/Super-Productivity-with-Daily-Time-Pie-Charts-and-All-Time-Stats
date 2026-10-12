@@ -4,7 +4,8 @@
 > **This is a personal fork of [super-productivity/super-productivity](https://github.com/super-productivity/super-productivity), not the official project.**
 > It exists to add the statistics features described below; everything else is upstream code, and all credit for the
 > base application belongs to its original authors — see [Credits and license](#credits-and-license).
-> For downloads, documentation and support, please use the [upstream repository](https://github.com/super-productivity/super-productivity).
+> For the ready-to-run Windows build of this fork, see [Download](#download-windows-no-install). Documentation and
+> support for the app itself live in the [upstream repository](https://github.com/super-productivity/super-productivity).
 
 # Super Productivity — with Daily Time Pie Charts & All-Time Stats
 
@@ -16,6 +17,23 @@ This fork adds one thing: a dedicated **Statistics** page, reachable from the si
     alt="The Statistics page: a per-day time pie chart with a color editor below it, and an all-time cumulative time table with progress bars"
   />
 </p>
+
+## Download (Windows, no install)
+
+[**Download Super-Productivity-portable-x64.exe**](https://github.com/R1kki-taki/Super-Productivity-with-Daily-Time-Pie-Charts-and-All-Time-Stats/releases/latest/download/Super-Productivity-portable-x64.exe)
+
+One file, 64-bit. No installer, no admin rights, no setup. Double-click it and the app opens; everything you type and
+every minute you track stays on your own machine.
+
+- The first start takes a few seconds while the single file unpacks itself; later starts are normal.
+- Windows SmartScreen complains the first time, because this build is not code-signed. Choose **More info**, then
+  **Run anyway**.
+- Data lives in `%APPDATA%\superProductivity`, the same place the upstream app uses, so the two builds can be swapped
+  back and forth without losing anything.
+
+To build it yourself instead, see [Running this fork](#running-this-fork).
+
+---
 
 ## What this fork adds
 
