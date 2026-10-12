@@ -8,7 +8,11 @@
   @if (data.candidates.length) {
     <div class="candidate-list">
       @for (candidate of data.candidates; track candidate.key) {
-        <button type="button" class="candidate-row" (click)="choose(candidate)">
+        <button
+          type="button"
+          class="candidate-row"
+          (click)="choose(candidate)"
+        >
           <span class="candidate-title">{{ candidate.title }}</span>
           <span class="candidate-meta">
             {{ candidate.taskCount }} · {{ candidate.totalTimeSpent | msToString }}
@@ -22,7 +26,11 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button type="button" mat-button (click)="close()">
+  <button
+    type="button"
+    mat-button
+    (click)="close()"
+  >
     {{ T.G.CANCEL | translate }}
   </button>
 </mat-dialog-actions>
