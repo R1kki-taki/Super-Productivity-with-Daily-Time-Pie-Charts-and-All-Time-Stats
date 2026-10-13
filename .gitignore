@@ -135,3 +135,11 @@ data/
 
 # Generated App Store Connect "What's New" notes (see tools/prepare-appstore-release-notes.js)
 /fastlane/appstore_metadata
+
+# Local Windows release artifacts and build/upload scratch files.
+# The installers are ~234 MB, well over GitHub's 100 MB per-file push limit,
+# so binaries are published as release assets instead of committed.
+/19.2.0/
+/*.log
+/tree.json
+/upload-result.json
