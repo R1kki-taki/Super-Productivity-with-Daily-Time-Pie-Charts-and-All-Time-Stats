@@ -4,6 +4,7 @@ import {
   ElementRef,
   EventEmitter,
   OnDestroy,
+  Output,
   computed,
   effect,
   inject,
@@ -92,7 +93,7 @@ export class LazyChartComponent implements OnDestroy {
   readonly shareFileName = input('chart.png');
   readonly enableTimeframeSelector = input(false);
 
-  readonly chartClick = new EventEmitter<ChartClickEvent>();
+  @Output() readonly chartClick = new EventEmitter<ChartClickEvent>();
 
   private readonly canvasRef = viewChild<ElementRef<HTMLCanvasElement>>('canvas');
 
