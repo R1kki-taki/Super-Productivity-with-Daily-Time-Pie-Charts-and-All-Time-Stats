@@ -7,7 +7,8 @@
   cdkOverlayOrigin
   type="button"
   class="color-trigger"
-  [style.background-color]="value()"
+  [style.background-color]="color()"
+  [attr.aria-label]="label() || null"
   (click)="toggle()"
 ></button>
 
@@ -24,41 +25,51 @@
   (detach)="isOpen.set(false)"
 >
   <div class="color-panel">
-    <div class="color-grid">
-      @for (color of presetColors; track color) {
-        <button
-          type="button"
-          class="color-swatch"
-          [style.background-color]="color"
-          [class.selected]="value() === color"
-          (click)="selectColor(color)"
-        >
-          @if (value() === color) {
-            <mat-icon>check</mat-icon>
-          }
-        </button>
-      }
-      <button
-        type="button"
-        class="color-swatch custom-color-btn"
-        [style.background-color]="isPresetColor() ? '' : value()"
-        [class.selected]="!isPresetColor()"
-        (click)="openNativePicker()"
-      >
-        @if (!isPresetColor()) {
-          <mat-icon>check</mat-icon>
-        } @else {
-          <mat-icon>colorize</mat-icon>
-        }
-      </button>
+    <div
+      class="sv-surface"
+      [style.background-color]="hueColor()"
+      (pointerdown)="onSaturationValuePointerDown($event)"
+      (pointermove)="onSaturationValuePointerMove($event)"
+      (pointerup)="onSaturationValuePointerUp($event)"
+      (pointercancel)="onSaturationValuePointerUp($event)"
+    >
+      <span
+        class="sv-handle"
+        [style.left.%]="saturationPercent()"
+        [style.top.%]="valuePercent()"
+      ></span>
+    </div>
+
+    <div
+      class="hue-bar"
+      (pointerdown)="onHuePointerDown($event)"
+      (pointermove)="onHuePointerMove($event)"
+      (pointerup)="onHuePointerUp($event)"
+      (pointercancel)="onHuePointerUp($event)"
+    >
+      <span
+        class="hue-handle"
+        [style.left.%]="huePercent()"
+      ></span>
+    </div>
+
+    <div class="code-row">
+      <span
+        class="code-preview"
+        [style.background-color]="color()"
+      ></span>
+      <input
+        class="color-code"
+        type="text"
+        spellcheck="false"
+        autocomplete="off"
+        [ngModel]="codeValue()"
+        (ngModelChange)="onCodeInput($event)"
+        (blur)="onCodeBlur()"
+        [ngModelOptions]="{ standalone: true }"
+        [attr.placeholder]="T.G.COLOR_CODE | translate"
+        [attr.aria-label]="T.G.COLOR_CODE | translate"
+      />
     </div>
   </div>
 </ng-template>
-
-<input
-  #nativeInput
-  type="color"
-  class="native-color-input"
-  [value]="value()"
-  (change)="onNativeChange($event)"
-/>

@@ -40,52 +40,10 @@
           [options]="pieChartOptions"
           height="360px"
           [shareFileName]="'time-per-task.png'"
+          (chartClick)="onPieSliceClick($event)"
         ></lazy-chart>
 
-        @if (colorRows().length) {
-          <div class="color-editor">
-            <h3 class="color-editor-title">
-              {{ T.F.STATISTICS.COLORS_TITLE | translate }}
-            </h3>
-            <div class="color-rows">
-              @for (row of colorRows(); track row.key) {
-                <div class="color-row">
-                  <span
-                    class="color-name"
-                    [title]="row.label"
-                  >
-                    {{ row.label }}
-                  </span>
-                  <input-color-picker
-                    [value]="row.color"
-                    (valueChange)="onColorChange(row.key, $event)"
-                  ></input-color-picker>
-                  <input
-                    class="color-code"
-                    type="text"
-                    spellcheck="false"
-                    autocomplete="off"
-                    [ngModel]="colorDrafts()[row.key] ?? row.color"
-                    (ngModelChange)="onColorChange(row.key, $event)"
-                    (blur)="onColorBlur(row.key)"
-                    [ngModelOptions]="{ standalone: true }"
-                    [attr.aria-label]="T.F.STATISTICS.COLOR_CODE | translate"
-                    [attr.placeholder]="T.F.STATISTICS.COLOR_CODE | translate"
-                  />
-                  <button
-                    mat-icon-button
-                    type="button"
-                    [matTooltip]="T.F.STATISTICS.RESET_COLOR | translate"
-                    [attr.aria-label]="T.F.STATISTICS.RESET_COLOR | translate"
-                    (click)="resetColor(row.key)"
-                  >
-                    <mat-icon>restart_alt</mat-icon>
-                  </button>
-                </div>
-              }
-            </div>
-          </div>
-        }
+        <p class="section-hint">{{ T.F.STATISTICS.SLICE_HINT | translate }}</p>
       } @else {
         <p class="empty-state">{{ T.F.STATISTICS.NO_DATA | translate }}</p>
       }
@@ -127,7 +85,10 @@
           </thead>
           <tbody>
             @for (entry of sameNameRows(); track entry.row.key) {
-              <tr>
+              <tr
+                class="row-clickable"
+                (click)="openTaskDetails(entry.row.key, entry.row.title)"
+              >
                 <td>{{ entry.row.title }}</td>
                 <td class="is-bar">
                   <div class="bar-track">
@@ -139,7 +100,10 @@
                 </td>
                 <td class="is-numeric">{{ entry.row.totalTimeSpent | msToString }}</td>
                 <td class="is-numeric">{{ entry.row.taskCount }}</td>
-                <td class="is-actions">
+                <td
+                  class="is-actions"
+                  (click)="$event.stopPropagation()"
+                >
                   <button
                     mat-icon-button
                     type="button"

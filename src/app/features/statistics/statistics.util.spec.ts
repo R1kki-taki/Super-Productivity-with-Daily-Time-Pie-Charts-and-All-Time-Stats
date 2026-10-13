@@ -1,15 +1,14 @@
 import { Task } from '../tasks/task.model';
 import {
+  buildHeatmapWeeks,
   buildPieSlices,
   getBarPercent,
-  getBarScaleMax,
   getPieColors,
   getSameNameTotals,
   getSliceColors,
+  getTaskHeatmapDayMap,
   getTimeSlicesForDay,
-  isValidHexColor,
   limitTimeSlices,
-  normalizeHexColor,
   normalizeTaskTitle,
   OTHER_SLICE_KEY,
   sanitizeColorOverrides,
@@ -215,21 +214,6 @@ describe('getSliceColors', () => {
   });
 });
 
-describe('isValidHexColor / normalizeHexColor', () => {
-  it('should accept 3- and 6-digit hex regardless of case', () => {
-    expect(isValidHexColor('#abc')).toBe(true);
-    expect(isValidHexColor('#AABBCC')).toBe(true);
-    expect(isValidHexColor(' #aabbcc ')).toBe(true);
-    expect(isValidHexColor('aabbcc')).toBe(false);
-    expect(isValidHexColor('#aabbc')).toBe(false);
-  });
-
-  it('should expand 3-digit and lowercase', () => {
-    expect(normalizeHexColor('#ABC')).toBe('#aabbcc');
-    expect(normalizeHexColor('  #A1B2C3 ')).toBe('#a1b2c3');
-  });
-});
-
 describe('sanitizeColorOverrides', () => {
   it('should keep only well-formed hex entries and normalize them', () => {
     expect(
@@ -244,19 +228,83 @@ describe('sanitizeColorOverrides', () => {
   });
 });
 
-describe('getBarScaleMax', () => {
-  it('should round the max up within its own order of magnitude', () => {
-    expect(getBarScaleMax(12_345_678)).toBe(20_000_000);
-    expect(getBarScaleMax(150)).toBe(200);
-    expect(getBarScaleMax(5)).toBe(5);
-    expect(getBarScaleMax(1_000_000)).toBe(1_000_000);
-    expect(getBarScaleMax(999_999)).toBe(1_000_000);
+describe('getTaskHeatmapDayMap', () => {
+  const start = new Date(2026, 2, 1);
+  const end = new Date(2026, 2, 3);
+
+  it('should seed every day in the range even without tracked time', () => {
+    const { dayMap, hasData } = getTaskHeatmapDayMap([], 'work', start, end);
+
+    expect([...dayMap.keys()]).toEqual(['2026-03-01', '2026-03-02', '2026-03-03']);
+    expect(hasData).toBe(false);
+    expect(dayMap.get('2026-03-01')?.timeSpent).toBe(0);
   });
 
-  it('should return 0 for no/zero/negative input', () => {
-    expect(getBarScaleMax(0)).toBe(0);
-    expect(getBarScaleMax(-5)).toBe(0);
-    expect(getBarScaleMax(Number.NaN)).toBe(0);
+  it('should only count matching tasks and sum same-name instances', () => {
+    const tasks = [
+      createTask({ id: 'a', title: 'Work', timeSpentOnDay: { ['2026-03-01']: 60000 } }),
+      createTask({ id: 'b', title: ' work ', timeSpentOnDay: { ['2026-03-01']: 30000 } }),
+      createTask({ id: 'c', title: 'Other', timeSpentOnDay: { ['2026-03-01']: 999999 } }),
+    ];
+
+    const { dayMap, hasData } = getTaskHeatmapDayMap(tasks, 'work', start, end);
+
+    expect(hasData).toBe(true);
+    expect(dayMap.get('2026-03-01')?.timeSpent).toBe(90000);
+    expect(dayMap.get('2026-03-01')?.taskCount).toBe(2);
+    expect(dayMap.get('2026-03-02')?.timeSpent).toBe(0);
+  });
+
+  it('should rate the busiest day level 4 and quieter days lower', () => {
+    const tasks = [
+      createTask({
+        id: 'a',
+        title: 'Work',
+        timeSpentOnDay: { ['2026-03-01']: 100, ['2026-03-02']: 20 },
+      }),
+    ];
+
+    const { dayMap } = getTaskHeatmapDayMap(tasks, 'work', start, end);
+
+    expect(dayMap.get('2026-03-01')?.level).toBe(4);
+    expect(dayMap.get('2026-03-02')?.level).toBe(1);
+    expect(dayMap.get('2026-03-03')?.level).toBe(0);
+  });
+});
+
+describe('buildHeatmapWeeks', () => {
+  it('should lay days out in padded week rows', () => {
+    const { dayMap } = getTaskHeatmapDayMap(
+      [createTask({ title: 'Work', timeSpentOnDay: { ['2026-03-02']: 1000 } })],
+      'work',
+      new Date(2026, 2, 1),
+      new Date(2026, 2, 3),
+    );
+
+    const { weeks, monthLabels } = buildHeatmapWeeks(
+      dayMap,
+      new Date(2026, 2, 1),
+      new Date(2026, 2, 3),
+      0,
+      [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ],
+    );
+
+    expect(monthLabels[0]).toBe('Mar');
+    expect(weeks[0].days).toHaveSize(7);
+    expect(weeks.flatMap((week) => week.days).filter(Boolean)).toHaveSize(3);
   });
 });
 

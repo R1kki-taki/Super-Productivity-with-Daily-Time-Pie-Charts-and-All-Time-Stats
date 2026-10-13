@@ -1,0 +1,67 @@
+<h1 mat-dialog-title>{{ data.title }}</h1>
+
+<mat-dialog-content>
+  <section class="heatmap-section">
+    @if (heatmapData(); as heatmap) {
+      <heatmap
+        [data]="heatmap"
+        [showLegend]="false"
+        [scrollToEnd]="true"
+      />
+    } @else {
+      <p class="empty-state">{{ T.F.STATISTICS.NO_DATA | translate }}</p>
+    }
+  </section>
+
+  <label class="field">
+    <span class="field-label">{{ T.F.STATISTICS.NAME_LABEL | translate }}</span>
+    <input
+      class="field-input"
+      type="text"
+      spellcheck="false"
+      autocomplete="off"
+      [ngModel]="name()"
+      (ngModelChange)="name.set($event)"
+      [ngModelOptions]="{ standalone: true }"
+    />
+  </label>
+  <p class="field-hint">{{ T.F.STATISTICS.RENAME_HINT | translate }}</p>
+
+  <div class="color-field">
+    <span class="field-label">{{ T.F.STATISTICS.COLORS_TITLE | translate }}</span>
+    <div class="color-controls">
+      <input-color-picker
+        [value]="color()"
+        (valueChange)="onColorChange($event)"
+      ></input-color-picker>
+      <button
+        mat-icon-button
+        type="button"
+        [matTooltip]="T.F.STATISTICS.RESET_COLOR | translate"
+        [attr.aria-label]="T.F.STATISTICS.RESET_COLOR | translate"
+        (click)="resetColor()"
+      >
+        <mat-icon>restart_alt</mat-icon>
+      </button>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button
+    mat-button
+    type="button"
+    (click)="close()"
+  >
+    {{ T.G.CANCEL | translate }}
+  </button>
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    [disabled]="!canSave()"
+    (click)="save()"
+  >
+    {{ T.G.SAVE | translate }}
+  </button>
+</mat-dialog-actions>

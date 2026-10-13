@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { ChartData, ChartOptions } from 'chart.js';
+import { ActiveElement, ChartData, ChartOptions } from 'chart.js';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -16,22 +16,25 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { LazyChartComponent } from '../../features/metric/lazy-chart/lazy-chart.component';
 import { DatePickerInputComponent } from '../../ui/date-picker-input/date-picker-input.component';
-import { InputColorPickerComponent } from '../../ui/input-color-picker/input-color-picker.component';
 import { MsToStringPipe, msToString } from '../../ui/duration/ms-to-string.pipe';
+import { DialogConfirmComponent } from '../../ui/dialog-confirm/dialog-confirm.component';
 import { StatisticsService } from '../../features/statistics/statistics.service';
 import { DialogMergeTaskNameComponent } from '../../features/statistics/dialog-merge-task-name/dialog-merge-task-name.component';
 import {
+  DialogTaskDetailsComponent,
+  DialogTaskDetailsResult,
+} from '../../features/statistics/dialog-task-details/dialog-task-details.component';
+import {
   buildPieSlices,
   getBarPercent,
-  getBarScaleMax,
+  getPieColors,
   getSameNameTotals,
   getSliceColors,
-  isValidHexColor,
-  normalizeHexColor,
+  normalizeTaskTitle,
   OTHER_SLICE_KEY,
   PieSlice,
-  sanitizeColorOverrides,
   SameNameTotal,
+  sanitizeColorOverrides,
   TaskColorOverrides,
 } from '../../features/statistics/statistics.util';
 import { Task } from '../../features/tasks/task.model';
@@ -81,7 +84,6 @@ const saveColorOverrides = (overrides: TaskColorOverrides): void => {
     TranslatePipe,
     LazyChartComponent,
     DatePickerInputComponent,
-    InputColorPickerComponent,
     MsToStringPipe,
   ],
 })
@@ -113,15 +115,6 @@ export class StatisticsPageComponent {
   /** Pie colors the user picked, keyed by normalized task name. Device-local. */
   readonly sliceColorOverrides = signal<TaskColorOverrides>(loadColorOverrides());
 
-  /**
-   * Raw text per color field, present only while a half-typed code is in the
-   * field. Without it the field is rewritten from the applied color on every
-   * keystroke, so typing `#ff0000` breaks at the third digit: `#ff0` is already
-   * a valid 3-digit color and snaps to `#ffff00`.
-   */
-  private readonly _colorDrafts = signal<Record<string, string>>({});
-  readonly colorDrafts = this._colorDrafts.asReadonly();
-
   readonly pieSlices = computed<PieSlice[]>(() => {
     // Read so the remainder slice's label is re-translated on language change.
     this._langChange();
@@ -150,15 +143,6 @@ export class StatisticsPageComponent {
     };
   });
 
-  /** Recolorable slices — the folded remainder has no color of its own. */
-  readonly colorRows = computed(() => {
-    const slices = this.pieSlices();
-    const colors = getSliceColors(slices, this.sliceColorOverrides());
-    return slices
-      .map((slice, i) => ({ key: slice.key, label: slice.label, color: colors[i] }))
-      .filter((row) => row.key !== OTHER_SLICE_KEY);
-  });
-
   readonly totalForDay = computed(() =>
     (this.pieChartData().datasets[0]?.data ?? []).reduce(
       (sum, value) => sum + (value ?? 0),
@@ -168,12 +152,14 @@ export class StatisticsPageComponent {
 
   readonly sameNameTotals = computed(() => getSameNameTotals(this._allTasks()));
 
-  /** Each cumulative row plus its bar width, scaled to the longest total rounded up. */
+  /**
+   * Each cumulative row plus its bar width. The bar is the row's share of all
+   * tracked time, so the whole column reads as a percentage breakdown instead of
+   * being scaled to the longest row.
+   */
   readonly sameNameRows = computed(() => {
     const totals = this.sameNameTotals();
-    const scaleMax = getBarScaleMax(
-      totals.reduce((max, row) => Math.max(max, row.totalTimeSpent), 0),
-    );
+    const scaleMax = totals.reduce((sum, row) => sum + row.totalTimeSpent, 0);
     return totals.map((row) => ({
       row,
       barPercent: getBarPercent(row.totalTimeSpent, scaleMax),
@@ -206,53 +192,95 @@ export class StatisticsPageComponent {
     this._statisticsService.refresh();
   }
 
-  /** Applies a color from the swatch picker or the code field; junk is ignored. */
-  onColorChange(key: string, value: string): void {
-    if (!isValidHexColor(value)) {
-      this._setDraft(key, value);
+  /** Opens the details dialog for the slice the user clicked on the pie. */
+  onPieSliceClick(event: { active: ActiveElement[] }): void {
+    const index = event.active[0]?.index;
+    if (typeof index !== 'number') {
+      return;
+    }
+    const slice = this.pieSlices()[index];
+    if (!slice) {
+      return;
+    }
+    void this.openTaskDetails(slice.key, slice.label);
+  }
+
+  /**
+   * Opens the heatmap / color / rename dialog for one same-name group. The
+   * folded remainder slice has no task behind it, so it is skipped.
+   */
+  async openTaskDetails(key: string, title: string): Promise<void> {
+    if (key === OTHER_SLICE_KEY) {
       return;
     }
 
-    const color = normalizeHexColor(value);
-    // A finished code or a swatch click needs no draft: the field already shows
-    // exactly this value, so the applied color can write straight back.
-    if (value.trim() === color) {
-      this._clearDraft(key);
-    } else {
-      this._setDraft(key, value);
+    const result = (await firstValueFrom(
+      this._matDialog
+        .open(DialogTaskDetailsComponent, {
+          restoreFocus: true,
+          data: {
+            key,
+            title,
+            tasks: this._allTasks(),
+            color: this.sliceColorOverrides()[key] ?? null,
+            defaultColor: this._defaultColorFor(key),
+          },
+        })
+        .afterClosed(),
+    )) as DialogTaskDetailsResult | undefined;
+
+    if (!result) {
+      return;
     }
-    this._setColor(key, color);
+
+    await this._applyTaskDetails(result);
   }
 
-  /** Leaving the field drops half-typed text, so the field shows what is applied. */
-  onColorBlur(key: string): void {
-    this._clearDraft(key);
+  /** Stored color if the user set one, otherwise the color the slice would use. */
+  private _defaultColorFor(key: string): string {
+    const slices = this.pieSlices();
+    const index = slices.findIndex((slice) => slice.key === key);
+    const defaults = getPieColors(Math.max(slices.length, 1));
+    return index >= 0 ? defaults[index] : defaults[0];
   }
 
-  resetColor(key: string): void {
-    this._clearDraft(key);
-    const next = { ...this.sliceColorOverrides() };
-    delete next[key];
-    this._persist(next);
-  }
+  /**
+   * Applies the dialog result: the color moves to the (possibly renamed) group,
+   * and a changed name renames every task in the group, which folds it into any
+   * existing group of that name.
+   */
+  private async _applyTaskDetails(result: DialogTaskDetailsResult): Promise<void> {
+    const title = result.title.trim();
+    const nextKey = normalizeTaskTitle(title);
 
-  private _setDraft(key: string, draft: string): void {
-    this._colorDrafts.update((drafts) => ({ ...drafts, [key]: draft }));
-  }
+    const overrides = { ...this.sliceColorOverrides() };
+    delete overrides[result.key];
+    if (result.color) {
+      overrides[nextKey] = result.color;
+    }
+    this._persist(overrides);
 
-  private _clearDraft(key: string): void {
-    this._colorDrafts.update((drafts) => {
-      if (!(key in drafts)) {
-        return drafts;
-      }
-      const next = { ...drafts };
-      delete next[key];
-      return next;
-    });
-  }
+    if (nextKey === result.key) {
+      return;
+    }
 
-  private _setColor(key: string, color: string): void {
-    this._persist({ ...this.sliceColorOverrides(), [key]: color });
+    this.isMerging.set(true);
+    try {
+      const renamedCount = await this._statisticsService.mergeTaskNames(
+        result.key,
+        title,
+      );
+      this._snackService.open({
+        type: 'SUCCESS',
+        msg: T.F.STATISTICS.RENAME_DONE,
+        translateParams: { count: renamedCount, title },
+      });
+    } catch (e) {
+      Log.err('Statistics: renaming task group failed', e);
+      this._snackService.open({ type: 'ERROR', msg: T.F.STATISTICS.MERGE_FAILED });
+    } finally {
+      this.isMerging.set(false);
+    }
   }
 
   private _persist(overrides: TaskColorOverrides): void {
@@ -263,7 +291,8 @@ export class StatisticsPageComponent {
   /**
    * Renames every task behind `source` to the name the user picks, which folds
    * the two rows into one. The target keeps its own name, so a merge never
-   * rewrites the group the user is merging into.
+   * rewrites the group the user is merging into. A second confirmation guards
+   * the choice, since the rename cannot be undone from here.
    */
   async mergeInto(source: SameNameTotal): Promise<void> {
     const candidates = this.sameNameTotals().filter((entry) => entry.key !== source.key);
@@ -283,6 +312,27 @@ export class StatisticsPageComponent {
     )) as SameNameTotal | undefined;
 
     if (!target) {
+      return;
+    }
+
+    const confirmed = await firstValueFrom(
+      this._matDialog
+        .open(DialogConfirmComponent, {
+          restoreFocus: true,
+          data: {
+            title: T.F.STATISTICS.MERGE_CONFIRM_TITLE,
+            message: T.F.STATISTICS.MERGE_CONFIRM,
+            translateParams: {
+              count: source.taskCount,
+              source: source.title,
+              target: target.title,
+            },
+          },
+        })
+        .afterClosed(),
+    );
+
+    if (!confirmed) {
       return;
     }
 

@@ -1,4 +1,6 @@
 import { Task } from '../tasks/task.model';
+import { getDbDateStr } from '../../util/get-db-date-str';
+import { hslToHex, isValidHexColor, normalizeHexColor } from '../../util/color.util';
 
 export interface TaskTimeSlice {
   /** Normalized title, used to merge tasks that share a name. */
@@ -30,6 +32,28 @@ export const OTHER_SLICE_KEY = '__other__';
 
 /** Per-slice color choices, keyed the same way as `PieSlice.key`. */
 export type TaskColorOverrides = Record<string, string>;
+
+/**
+ * One day of a per-task heatmap. Structurally identical to the `heatmap` UI
+ * component's `DayData`, redeclared here so this module stays a pure util.
+ */
+export interface TaskHeatmapDay {
+  date: Date;
+  dateStr: string;
+  taskCount: number;
+  timeSpent: number;
+  /** 0–4 color intensity. */
+  level: number;
+}
+
+export interface TaskHeatmapWeek {
+  days: (TaskHeatmapDay | null)[];
+}
+
+export interface TaskHeatmapData {
+  weeks: TaskHeatmapWeek[];
+  monthLabels: string[];
+}
 
 /**
  * Same-name detection ignores casing and surrounding whitespace, because the
@@ -103,6 +127,146 @@ export const getSameNameTotals = (tasks: readonly Task[]): SameNameTotal[] => {
 };
 
 /**
+ * Per-day time for one same-name group between two dates, as the `heatmap` UI
+ * component wants it. Only tasks whose name matches `key` count, so the grid
+ * reflects a single task rather than all tracked activity. Every day in the
+ * range is seeded so gaps render as empty cells; `hasData` is false when the
+ * group never tracked time, letting the caller show an empty state.
+ */
+export const getTaskHeatmapDayMap = (
+  tasks: readonly Task[],
+  key: string,
+  startDate: Date,
+  endDate: Date,
+): { dayMap: Map<string, TaskHeatmapDay>; hasData: boolean } => {
+  const dayMap = new Map<string, TaskHeatmapDay>();
+  const cursor = new Date(startDate);
+  while (cursor <= endDate) {
+    const dateStr = getDbDateStr(cursor);
+    dayMap.set(dateStr, {
+      date: new Date(cursor),
+      dateStr,
+      taskCount: 0,
+      timeSpent: 0,
+      level: 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const taskIdsPerDay = new Map<string, Set<string>>();
+  let maxTime = 0;
+  let hasData = false;
+
+  for (const task of tasks) {
+    if (normalizeTaskTitle(task.title) !== key) {
+      continue;
+    }
+    const perDay = task.timeSpentOnDay ?? {};
+    for (const dateStr of Object.keys(perDay)) {
+      const timeSpent = perDay[dateStr];
+      const day = dayMap.get(dateStr);
+      if (!day || !(timeSpent > 0)) {
+        continue;
+      }
+      day.timeSpent += timeSpent;
+      maxTime = Math.max(maxTime, day.timeSpent);
+      hasData = true;
+      const ids = taskIdsPerDay.get(dateStr) ?? new Set<string>();
+      ids.add(task.id);
+      taskIdsPerDay.set(dateStr, ids);
+    }
+  }
+
+  for (const [dateStr, ids] of taskIdsPerDay) {
+    const day = dayMap.get(dateStr);
+    if (day) {
+      day.taskCount = ids.size;
+    }
+  }
+
+  for (const day of dayMap.values()) {
+    day.level = maxTime > 0 ? getHeatmapLevel(day.timeSpent / maxTime) : 0;
+  }
+
+  return { dayMap, hasData };
+};
+
+const getHeatmapLevel = (ratio: number): number => {
+  if (!(ratio > 0)) {
+    return 0;
+  }
+  if (ratio > 0.75) {
+    return 4;
+  }
+  if (ratio > 0.5) {
+    return 3;
+  }
+  if (ratio > 0.25) {
+    return 2;
+  }
+  return 1;
+};
+
+/**
+ * Lays the day map out as calendar weeks, padding the first and last week with
+ * `null` days so the grid is rectangular. `firstDayOfWeek` and `monthNames`
+ * come from the app's `DateAdapter`, keeping this pure.
+ */
+export const buildHeatmapWeeks = (
+  dayMap: ReadonlyMap<string, TaskHeatmapDay>,
+  startDate: Date,
+  endDate: Date,
+  firstDayOfWeek: number,
+  monthNames: readonly string[],
+): TaskHeatmapData => {
+  const weeks: TaskHeatmapWeek[] = [];
+  const monthLabels: string[] = [];
+  let currentMonth = -1;
+
+  const firstDay = new Date(startDate);
+  const daysToGoBack = (firstDay.getDay() - firstDayOfWeek + 7) % 7;
+  firstDay.setDate(firstDay.getDate() - daysToGoBack);
+
+  const cursor = new Date(firstDay);
+  let weekCount = 0;
+
+  while (cursor <= endDate || weeks.length === 0) {
+    const week: TaskHeatmapWeek = { days: [] };
+
+    for (let i = 0; i < 7; i++) {
+      const dateStr = getDbDateStr(cursor);
+      const dayData = dayMap.get(dateStr);
+
+      if (cursor >= startDate && cursor <= endDate) {
+        week.days.push(dayData ?? null);
+
+        const month = cursor.getMonth();
+        if (month !== currentMonth && cursor.getDate() <= 7 && weekCount > 0) {
+          monthLabels.push(monthNames[month]);
+          currentMonth = month;
+        } else if (monthLabels.length === 0 && weekCount === 0) {
+          monthLabels.push(monthNames[month]);
+          currentMonth = month;
+        }
+      } else {
+        week.days.push(null);
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    weeks.push(week);
+    weekCount++;
+
+    if (weeks.length > 54) {
+      break;
+    }
+  }
+
+  return { weeks, monthLabels };
+};
+
+/**
  * Caps a sorted slice list at `maxSlices` entries, folding the tail into a
  * single remainder. `maxSlices` counts the remainder slice: when truncation is
  * needed, `maxSlices - 1` named slices survive and the rest are summed into
@@ -165,24 +329,6 @@ export const getSliceColors = (
   return slices.map((slice, i) => overrides[slice.key] ?? defaults[i]);
 };
 
-const HEX_COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-
-/** True for the 3- or 6-digit hex forms the color code field accepts. */
-export const isValidHexColor = (value: string): boolean =>
-  HEX_COLOR_RE.test(value.trim());
-
-/**
- * Normalizes an accepted color to the lowercase `#rrggbb` the color input
- * requires: the input silently shows black for `#rgb` or upper-case values.
- */
-export const normalizeHexColor = (value: string): string => {
-  const color = value.trim().toLowerCase();
-  if (/^#[0-9a-f]{3}$/.test(color)) {
-    return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
-  }
-  return color;
-};
-
 /** Keeps only well-formed hex entries, so a corrupt or stale store can't poison the UI. */
 export const sanitizeColorOverrides = (value: unknown): TaskColorOverrides => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -196,19 +342,6 @@ export const sanitizeColorOverrides = (value: unknown): TaskColorOverrides => {
     }
   }
   return overrides;
-};
-
-/**
- * The full-width value of the cumulative-time bars: the longest total rounded up
- * to the next round step within its own order of magnitude (1.23h → 2h, 12.3m →
- * 20m), so the bars read at a glance instead of hugging 100%.
- */
-export const getBarScaleMax = (maxValue: number): number => {
-  if (!Number.isFinite(maxValue) || maxValue <= 0) {
-    return 0;
-  }
-  const magnitude = 10 ** Math.floor(Math.log10(maxValue));
-  return Math.ceil(maxValue / magnitude) * magnitude;
 };
 
 /** A value's share of the bar scale, clamped to 0–100 so a stale scale can't overflow. */
@@ -227,36 +360,3 @@ export const getBarPercent = (value: number, scaleMax: number): number => {
  */
 export const getPieColors = (count: number): string[] =>
   Array.from({ length: count }, (_, i) => hslToHex((i * 137.508) % 360, 65, 55));
-
-const hslToHex = (h: number, s: number, l: number): string => {
-  const sNorm = s / 100;
-  const lNorm = l / 100;
-  const twoL = 2 * lNorm;
-  const c = (1 - Math.abs(twoL - 1)) * sNorm;
-  const hue = h / 60;
-  const x = c * (1 - Math.abs((hue % 2) - 1));
-
-  let rgb: [number, number, number];
-  if (hue < 1) {
-    rgb = [c, x, 0];
-  } else if (hue < 2) {
-    rgb = [x, c, 0];
-  } else if (hue < 3) {
-    rgb = [0, c, x];
-  } else if (hue < 4) {
-    rgb = [0, x, c];
-  } else if (hue < 5) {
-    rgb = [x, 0, c];
-  } else {
-    rgb = [c, 0, x];
-  }
-
-  const halfC = c / 2;
-  const m = lNorm - halfC;
-  const toHex = (channel: number): string =>
-    Math.round((channel + m) * 255)
-      .toString(16)
-      .padStart(2, '0');
-
-  return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
-};
