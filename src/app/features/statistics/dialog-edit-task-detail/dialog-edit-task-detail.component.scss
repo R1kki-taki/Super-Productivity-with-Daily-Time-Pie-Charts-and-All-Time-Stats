@@ -1,0 +1,26 @@
+mat-dialog-content {
+  min-width: 360px;
+  max-width: 720px;
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-quarter);
+}
+
+.field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color-muted);
+}
+
+// Boxed so the editor reads as a field rather than as plain text, and tall
+// enough that a multi-line detail is visible without scrolling the dialog.
+.detail-editor {
+  display: block;
+  min-height: 160px;
+  padding: var(--s-quarter) var(--s-half);
+  border: 1px solid var(--divider-color);
+  border-radius: var(--radius-xs);
+}

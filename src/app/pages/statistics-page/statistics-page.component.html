@@ -21,6 +21,38 @@
 
     <section class="stats-section">
       <div class="section-heading">
+        <h2>{{ T.F.STATISTICS.ACTIVITY_HEATMAP | translate }}</h2>
+        @if (availableYears().length > 1) {
+          <div class="heading-actions">
+            <mat-form-field
+              appearance="outline"
+              subscriptSizing="dynamic"
+            >
+              <mat-label>{{ T.F.STATISTICS.YEAR | translate }}</mat-label>
+              <mat-select
+                [value]="selectedYear()"
+                (selectionChange)="onYearChange($event.value)"
+              >
+                @for (year of availableYears(); track year) {
+                  <mat-option [value]="year">{{ year }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        }
+      </div>
+
+      <heatmap
+        [data]="activityHeatmapData()"
+        [selectedDateStr]="dayStr()"
+        (dayClick)="onHeatmapDayClick($event)"
+      />
+
+      <p class="section-hint">{{ T.F.STATISTICS.HEATMAP_HINT | translate }}</p>
+    </section>
+
+    <section class="stats-section">
+      <div class="section-heading">
         <h2>{{ T.F.STATISTICS.TIME_PER_TASK | translate }}</h2>
         @if (totalForDay() > 0) {
           <span class="total-label">

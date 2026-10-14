@@ -139,7 +139,12 @@ data/
 # Local Windows release artifacts and build/upload scratch files.
 # The installers are ~234 MB, well over GitHub's 100 MB per-file push limit,
 # so binaries are published as release assets instead of committed.
-/19.2.0/
+# One directory per version, e.g. 19.2.0/ or 19.3.0/.
+/[0-9]*.[0-9]*.[0-9]*/
 /*.log
 /tree.json
 /upload-result.json
+# Scratch probes, screenshots and proxy logs from local debugging sessions.
+/ghost-*.cjs
+/ghost-shots*/
+/push-proxy.txt

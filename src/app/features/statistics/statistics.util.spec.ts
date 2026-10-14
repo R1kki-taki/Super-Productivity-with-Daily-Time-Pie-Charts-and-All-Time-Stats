@@ -3,6 +3,7 @@ import {
   buildHeatmapWeeks,
   buildPieSlices,
   getBarPercent,
+  getGroupRosterForDay,
   getPieColors,
   getSameNameTotals,
   getSliceColors,
@@ -318,5 +319,53 @@ describe('getBarPercent', () => {
     expect(getBarPercent(400, 200)).toBe(100);
     expect(getBarPercent(-1, 200)).toBe(0);
     expect(getBarPercent(10, 0)).toBe(0);
+  });
+});
+
+describe('getGroupRosterForDay', () => {
+  it('should only list instances of the group that tracked time that day', () => {
+    const tasks = [
+      createTask({ id: 'a', title: 'Stand Up', timeSpentOnDay: { [DAY]: 1000 } }),
+      createTask({ id: 'b', title: 'stand up', timeSpentOnDay: { [OTHER_DAY]: 500 } }),
+      createTask({ id: 'c', title: 'Other', timeSpentOnDay: { [DAY]: 2000 } }),
+    ];
+
+    expect(
+      getGroupRosterForDay(tasks, 'stand up', DAY).map((entry) => entry.task.id),
+    ).toEqual(['a']);
+  });
+
+  it('should leave the detail empty when the task has none, so the row shows its placeholder', () => {
+    const tasks = [
+      createTask({ id: 'a', title: 'Stand Up', timeSpentOnDay: { [DAY]: 1000 } }),
+    ];
+
+    expect(getGroupRosterForDay(tasks, 'stand up', DAY)[0].detail).toBe('');
+  });
+
+  it('should preview the details with markdown markers dropped', () => {
+    const tasks = [
+      createTask({
+        id: 'a',
+        title: 'Stand Up',
+        notes: '## Standup\n\n- blockers',
+        timeSpentOnDay: { [DAY]: 1000 },
+      }),
+    ];
+
+    expect(getGroupRosterForDay(tasks, 'stand up', DAY)[0].detail).toBe(
+      'Standup blockers',
+    );
+  });
+
+  it('should list the longest instance first', () => {
+    const tasks = [
+      createTask({ id: 'short', title: 'Stand Up', timeSpentOnDay: { [DAY]: 1000 } }),
+      createTask({ id: 'long', title: 'Stand Up', timeSpentOnDay: { [DAY]: 5000 } }),
+    ];
+
+    expect(
+      getGroupRosterForDay(tasks, 'stand up', DAY).map((entry) => entry.task.id),
+    ).toEqual(['long', 'short']);
   });
 });

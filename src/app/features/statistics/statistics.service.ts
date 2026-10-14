@@ -53,6 +53,72 @@ export class StatisticsService {
   }
 
   /**
+   * Sets one task's tracked time for a single day, recomputing its lifetime
+   * total so the change shows up everywhere time is read from (pie chart, totals
+   * table, heatmap). A non-positive `timeSpentMs` clears that day instead.
+   *
+   * Store tasks go through the normal task update, which routes through the
+   * reducer's `updateTimeSpentForTask` and keeps parent aggregates in sync.
+   * Archived tasks no longer exist in the store, so they are patched in place
+   * with a manually recomputed total.
+   */
+  async setTaskTimeSpent(
+    taskId: string,
+    dayStr: string,
+    timeSpentMs: number,
+  ): Promise<void> {
+    const [storeTasks, archivedTasks] = await firstValueFrom(this._tasksAndArchive$);
+    const task =
+      storeTasks.find((candidate) => candidate.id === taskId) ??
+      archivedTasks.find((candidate) => candidate.id === taskId);
+    if (!task) {
+      return;
+    }
+
+    const timeSpentOnDay = { ...task.timeSpentOnDay };
+    if (timeSpentMs > 0) {
+      timeSpentOnDay[dayStr] = timeSpentMs;
+    } else {
+      delete timeSpentOnDay[dayStr];
+    }
+
+    if (storeTasks.some((candidate) => candidate.id === taskId)) {
+      this._taskService.update(taskId, { timeSpentOnDay });
+      return;
+    }
+
+    const timeSpent = Object.values(timeSpentOnDay).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    await this._taskArchiveService.updateTasks([
+      { id: taskId, changes: { timeSpentOnDay, timeSpent } },
+    ]);
+    this.refresh();
+  }
+
+  /**
+   * Replaces one task's details. Same store/archive split as
+   * `setTaskTimeSpent`: store tasks go through the normal task update, archived
+   * ones through the archive service, which the store cannot reach.
+   */
+  async setTaskNotes(taskId: string, notes: string): Promise<void> {
+    const [storeTasks, archivedTasks] = await firstValueFrom(this._tasksAndArchive$);
+
+    if (storeTasks.some((candidate) => candidate.id === taskId)) {
+      this._taskService.update(taskId, { notes });
+      return;
+    }
+
+    if (!archivedTasks.some((candidate) => candidate.id === taskId)) {
+      return;
+    }
+
+    await this._taskArchiveService.updateTasks([{ id: taskId, changes: { notes } }]);
+    this.refresh();
+  }
+
+  /**
    * Renames every task whose name matches `sourceKey` to `targetTitle`, so the
    * two groups aggregate as one afterwards. Returns how many tasks were renamed.
    *

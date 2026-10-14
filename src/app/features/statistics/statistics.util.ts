@@ -127,17 +127,15 @@ export const getSameNameTotals = (tasks: readonly Task[]): SameNameTotal[] => {
 };
 
 /**
- * Per-day time for one same-name group between two dates, as the `heatmap` UI
- * component wants it. Only tasks whose name matches `key` count, so the grid
- * reflects a single task rather than all tracked activity. Every day in the
- * range is seeded so gaps render as empty cells; `hasData` is false when the
- * group never tracked time, letting the caller show an empty state.
+ * Seeds every day in the range so gaps render as empty cells, then folds each
+ * matching task's `timeSpentOnDay` into it. Shared by the per-task and global
+ * heatmaps, which differ only in which tasks they count.
  */
-export const getTaskHeatmapDayMap = (
+const buildHeatmapDayMap = (
   tasks: readonly Task[],
-  key: string,
   startDate: Date,
   endDate: Date,
+  includes: (task: Task) => boolean,
 ): { dayMap: Map<string, TaskHeatmapDay>; hasData: boolean } => {
   const dayMap = new Map<string, TaskHeatmapDay>();
   const cursor = new Date(startDate);
@@ -154,11 +152,10 @@ export const getTaskHeatmapDayMap = (
   }
 
   const taskIdsPerDay = new Map<string, Set<string>>();
-  let maxTime = 0;
   let hasData = false;
 
   for (const task of tasks) {
-    if (normalizeTaskTitle(task.title) !== key) {
+    if (!includes(task)) {
       continue;
     }
     const perDay = task.timeSpentOnDay ?? {};
@@ -169,7 +166,6 @@ export const getTaskHeatmapDayMap = (
         continue;
       }
       day.timeSpent += timeSpent;
-      maxTime = Math.max(maxTime, day.timeSpent);
       hasData = true;
       const ids = taskIdsPerDay.get(dateStr) ?? new Set<string>();
       ids.add(task.id);
@@ -184,12 +180,95 @@ export const getTaskHeatmapDayMap = (
     }
   }
 
+  const maxTime = [...dayMap.values()].reduce(
+    (max, day) => Math.max(max, day.timeSpent),
+    0,
+  );
   for (const day of dayMap.values()) {
     day.level = maxTime > 0 ? getHeatmapLevel(day.timeSpent / maxTime) : 0;
   }
 
   return { dayMap, hasData };
 };
+
+/**
+ * Per-day time for one same-name group between two dates, as the `heatmap` UI
+ * component wants it. Only tasks whose name matches `key` count, so the grid
+ * reflects a single task rather than all tracked activity. `hasData` is false
+ * when the group never tracked time, letting the caller show an empty state.
+ */
+export const getTaskHeatmapDayMap = (
+  tasks: readonly Task[],
+  key: string,
+  startDate: Date,
+  endDate: Date,
+): { dayMap: Map<string, TaskHeatmapDay>; hasData: boolean } =>
+  buildHeatmapDayMap(
+    tasks,
+    startDate,
+    endDate,
+    (task) => normalizeTaskTitle(task.title) === key,
+  );
+
+/**
+ * Per-day time across every task, for the statistics page's top-level heatmap.
+ * Unlike the per-task map it is not filtered, so the grid reflects all tracked
+ * activity and agrees with the pie chart below it.
+ */
+export const getActivityHeatmapDayMap = (
+  tasks: readonly Task[],
+  startDate: Date,
+  endDate: Date,
+): { dayMap: Map<string, TaskHeatmapDay>; hasData: boolean } =>
+  buildHeatmapDayMap(tasks, startDate, endDate, () => true);
+
+/** One individual task instance behind a same-name group, on one day. */
+export interface TaskDayRosterEntry {
+  task: Task;
+  /** Milliseconds tracked by this instance on the day. */
+  timeSpent: number;
+  /**
+   * One-line summary of the task's own details. Empty when it has none, so the
+   * row can show a placeholder rather than repeat the group title every
+   * instance shares.
+   */
+  detail: string;
+}
+
+/**
+ * The individual task instances in a same-name group that tracked time on
+ * `dayStr`, longest first. A repeated task is a new instance every time, so the
+ * roster lists them separately and each can be edited or cleared on its own.
+ */
+export const getGroupRosterForDay = (
+  tasks: readonly Task[],
+  key: string,
+  dayStr: string,
+): TaskDayRosterEntry[] =>
+  tasks
+    .filter((task) => normalizeTaskTitle(task.title) === key)
+    .map((task) => ({
+      task,
+      timeSpent: task.timeSpentOnDay?.[dayStr] ?? 0,
+      detail: getTaskNotesPreview(task.notes),
+    }))
+    .filter((entry) => entry.timeSpent > 0)
+    .sort((a, b) => b.timeSpent - a.timeSpent);
+
+/**
+ * One-line plain-text preview of a task's notes. Markdown markers are dropped
+ * because the row renders raw text and would otherwise show the syntax instead
+ * of the content.
+ */
+export const getTaskNotesPreview = (notes: string | undefined): string =>
+  (notes ?? '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}[-*+]\s+/gm, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const getHeatmapLevel = (ratio: number): number => {
   if (!(ratio > 0)) {

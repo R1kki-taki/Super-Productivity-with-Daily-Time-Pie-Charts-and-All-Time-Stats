@@ -6,6 +6,7 @@ import {
   ElementRef,
   inject,
   input,
+  output,
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -54,6 +55,11 @@ export class HeatmapComponent {
   readonly label = input<string>('');
   readonly showLegend = input<boolean>(true);
   readonly scrollToEnd = input<boolean>(false);
+  /** `dateStr` of the currently selected day, highlighted in the grid. */
+  readonly selectedDateStr = input<string | null>(null);
+
+  /** Emits the clicked day's data (or `null` for empty padding cells). */
+  readonly dayClick = output<DayData>();
 
   private readonly _scrollableContent =
     viewChild<ElementRef<HTMLElement>>('scrollableContent');
@@ -110,7 +116,17 @@ export class HeatmapComponent {
     if (!day) {
       return 'day empty';
     }
-    return `day level-${day.level}`;
+    const classes = ['day', `level-${day.level}`];
+    if (this.selectedDateStr() === day.dateStr) {
+      classes.push('selected');
+    }
+    return classes.join(' ');
+  }
+
+  onDayClick(day: DayData | null): void {
+    if (day) {
+      this.dayClick.emit(day);
+    }
   }
 
   getDayTitle(day: DayData | null): string {

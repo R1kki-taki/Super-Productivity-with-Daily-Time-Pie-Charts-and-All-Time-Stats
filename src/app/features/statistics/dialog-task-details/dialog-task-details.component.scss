@@ -3,8 +3,120 @@ mat-dialog-content {
   max-width: 720px;
 }
 
+// Title row: the gear sits right after the name, so rename and color live
+// behind it instead of taking space in the body.
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+}
+
+.dialog-title-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog-title-settings {
+  flex: 0 0 auto;
+  color: var(--text-color-muted);
+}
+
+// Gears are affordances, not toggles: with no hover, focus or pressed
+// background nothing here ever reads as a "selected" state.
+.dialog-title-settings,
+.roster-settings {
+  --mat-icon-button-hover-state-layer-opacity: 0;
+  --mat-icon-button-focus-state-layer-opacity: 0;
+  --mat-icon-button-pressed-state-layer-opacity: 0;
+}
+
+// The row gear runs one size below the app's 40px icon button so the row's
+// created-time, detail and time columns keep their width. The extra class lifts
+// the size above the global .mat-mdc-icon-button rule.
+.roster-item .roster-settings.mat-mdc-icon-button {
+  --mat-icon-button-state-layer-size: var(--s4);
+  width: var(--s4);
+  height: var(--s4);
+
+  mat-icon {
+    width: calc(var(--s2) + var(--s-half));
+    height: calc(var(--s2) + var(--s-half));
+    font-size: calc(var(--s2) + var(--s-half));
+  }
+}
+
 .heatmap-section {
   margin-bottom: var(--s2);
+}
+
+.roster-section {
+  margin-bottom: var(--s2);
+}
+
+.roster-list {
+  list-style: none;
+  margin: var(--s-quarter) 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-quarter);
+}
+
+.roster-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+}
+
+// Creation time first, then the details — the row reads chronologically.
+.roster-created {
+  flex: 0 0 auto;
+  width: 60px;
+  color: var(--text-color-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Shows the placeholder when the task has none, so the row does not repeat the
+// title every instance in the group shares. Static: the row's gear opens the
+// details editor.
+.roster-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  padding: var(--s-quarter) var(--s-half);
+}
+
+.roster-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+// A long detail is cut with an ellipsis instead of pushing the time and delete
+// controls out of the row.
+.roster-detail-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roster-time {
+  flex: 0 0 auto;
+  width: 72px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .empty-state {
@@ -13,46 +125,8 @@ mat-dialog-content {
   opacity: var(--muted-alpha);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-quarter);
-}
-
 .field-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-color-muted);
-}
-
-.field-input {
-  padding: var(--s-half) var(--s);
-  border: 1px solid var(--divider-color);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-
-.field-hint {
-  margin: var(--s-quarter) 0 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--text-color-muted);
-}
-
-.color-field {
-  margin-top: var(--s2);
-}
-
-.color-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--s-half);
-  margin-top: var(--s-quarter);
-
-  // The picker is a rounded trigger sized for its own form row; drop the row
-  // margin so it lines up with the reset button beside it.
-  input-color-picker {
-    margin-bottom: 0;
-  }
 }

@@ -1188,6 +1188,7 @@
       }
     },
     "STATISTICS": {
+      "ACTIVITY_HEATMAP": "Activity",
       "COLORS_TITLE": "Custom colors",
       "COL_COUNT": "Tasks",
       "COL_MERGE": "Merge",
@@ -1195,6 +1196,13 @@
       "COL_TASK": "Task",
       "COL_TOTAL": "Total time",
       "DATE_LABEL": "Day",
+      "DAY_TASKS": "Tasks for this day",
+      "DELETE_DAY_CONFIRM": "Clear the {{time}} tracked for \"{{title}}\" on this day? Its total time is reduced everywhere.",
+      "DELETE_DAY_TITLE": "Clear day's time",
+      "DETAILS_LABEL": "Details",
+      "DETAILS_PLACEHOLDER": "Add details...",
+      "EDIT_DETAILS": "Edit details",
+      "HEATMAP_HINT": "Click a day to see its breakdown below.",
       "MERGE_CONFIRM": "Rename {{count}} tasks from \"{{source}}\" to \"{{target}}\"? This cannot be undone.",
       "MERGE_CONFIRM_TITLE": "Confirm merge",
       "MERGE_DONE": "Merged {{count}} tasks into \"{{title}}\"",
@@ -1205,6 +1213,7 @@
       "MERGE_TITLE": "Merge task name",
       "NAME_LABEL": "Task name",
       "NO_DATA": "No data for this selection yet",
+      "NO_TASKS_FOR_DAY": "No tasks tracked on this day",
       "OTHER": "Other",
       "REFRESH": "Reload archived tasks",
       "RENAME_DONE": "Renamed {{count}} tasks to \"{{title}}\"",
@@ -1213,7 +1222,8 @@
       "SAME_NAME_TOTAL": "Total time",
       "SLICE_HINT": "Click a slice for its heatmap, color and rename.",
       "TIME_PER_TASK": "Time per task",
-      "TOTAL_FOR_DAY": "Total tracked: {{time}}"
+      "TOTAL_FOR_DAY": "Total tracked: {{time}}",
+      "YEAR": "Year"
     },
     "SYNC": {
       "A": {

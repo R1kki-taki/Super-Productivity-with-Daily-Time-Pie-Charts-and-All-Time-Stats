@@ -27,6 +27,15 @@
   }
 }
 
+.heading-actions {
+  // The parent aligns on the baseline for text rows; a form field has no useful
+  // baseline, so it centres against the heading instead.
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: var(--s);
+}
+
 .total-label {
   flex-shrink: 0;
   font-size: var(--font-size-sm);

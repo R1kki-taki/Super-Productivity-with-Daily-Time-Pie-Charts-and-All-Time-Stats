@@ -25,6 +25,7 @@
                 <div
                   [class]="getDayClass(day)"
                   [title]="getDayTitle(day)"
+                  (click)="onDayClick(day)"
                 ></div>
               }
             </div>

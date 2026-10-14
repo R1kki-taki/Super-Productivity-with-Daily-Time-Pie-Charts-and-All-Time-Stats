@@ -12,10 +12,14 @@ import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltip } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { DateAdapter } from '@angular/material/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { LazyChartComponent } from '../../features/metric/lazy-chart/lazy-chart.component';
 import { DatePickerInputComponent } from '../../ui/date-picker-input/date-picker-input.component';
+import { DayData, HeatmapComponent } from '../../ui/heatmap/heatmap.component';
 import { MsToStringPipe, msToString } from '../../ui/duration/ms-to-string.pipe';
 import { DialogConfirmComponent } from '../../ui/dialog-confirm/dialog-confirm.component';
 import { StatisticsService } from '../../features/statistics/statistics.service';
@@ -26,6 +30,8 @@ import {
 } from '../../features/statistics/dialog-task-details/dialog-task-details.component';
 import {
   buildPieSlices,
+  buildHeatmapWeeks,
+  getActivityHeatmapDayMap,
   getBarPercent,
   getPieColors,
   getSameNameTotals,
@@ -36,6 +42,7 @@ import {
   SameNameTotal,
   sanitizeColorOverrides,
   TaskColorOverrides,
+  TaskHeatmapData,
 } from '../../features/statistics/statistics.util';
 import { Task } from '../../features/tasks/task.model';
 import { getDbDateStr } from '../../util/get-db-date-str';
@@ -81,10 +88,13 @@ const saveColorOverrides = (overrides: TaskColorOverrides): void => {
     MatIcon,
     MatIconButton,
     MatTooltip,
+    MatFormFieldModule,
+    MatSelectModule,
     TranslatePipe,
     LazyChartComponent,
     DatePickerInputComponent,
     MsToStringPipe,
+    HeatmapComponent,
   ],
 })
 export class StatisticsPageComponent {
@@ -94,6 +104,7 @@ export class StatisticsPageComponent {
   private readonly _translateService = inject(TranslateService);
   private readonly _matDialog = inject(MatDialog);
   private readonly _snackService = inject(SnackService);
+  private readonly _dateAdapter = inject(DateAdapter);
 
   readonly isMerging = signal(false);
 
@@ -111,6 +122,63 @@ export class StatisticsPageComponent {
   private readonly _langChange = toSignal(this._translateService.onLangChange, {
     initialValue: null,
   });
+
+  /** Emits whenever the date locale changes so locale-derived labels re-compute. */
+  private readonly _localeChange = toSignal(this._dateAdapter.localeChanges, {
+    initialValue: null,
+  });
+
+  private readonly _userSelectedYear = signal<number | null>(null);
+
+  /** Years that have any tracked time, newest first. */
+  readonly availableYears = computed(() => {
+    const years = new Set<number>();
+    const currentYear = new Date().getFullYear();
+    for (const task of this._allTasks()) {
+      for (const dateStr of Object.keys(task.timeSpentOnDay ?? {})) {
+        const year = Number(dateStr.slice(0, 4));
+        if (year > 0 && year <= currentYear) {
+          years.add(year);
+        }
+      }
+    }
+    return [...years].sort((a, b) => b - a);
+  });
+
+  /** The user's pick while it is still valid, otherwise the most recent year with data. */
+  readonly selectedYear = computed(() => {
+    const userSelection = this._userSelectedYear();
+    const years = this.availableYears();
+    if (userSelection !== null && years.includes(userSelection)) {
+      return userSelection;
+    }
+    return years.length > 0 ? years[0] : new Date().getFullYear();
+  });
+
+  /** All tracked time for the selected year, as the top-of-page activity heatmap. */
+  readonly activityHeatmapData = computed<TaskHeatmapData>(() => {
+    this._localeChange();
+    const year = this.selectedYear();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+    const { dayMap } = getActivityHeatmapDayMap(this._allTasks(), startDate, endDate);
+    return buildHeatmapWeeks(
+      dayMap,
+      startDate,
+      endDate,
+      this._dateAdapter.getFirstDayOfWeek(),
+      this._dateAdapter.getMonthNames('short'),
+    );
+  });
+
+  onYearChange(year: number): void {
+    this._userSelectedYear.set(year);
+  }
+
+  /** Picking a day on the heatmap drives the pie chart and task table below. */
+  onHeatmapDayClick(day: DayData): void {
+    this.selectedDay.set(day.date);
+  }
 
   /** Pie colors the user picked, keyed by normalized task name. Device-local. */
   readonly sliceColorOverrides = signal<TaskColorOverrides>(loadColorOverrides());
@@ -221,7 +289,7 @@ export class StatisticsPageComponent {
           data: {
             key,
             title,
-            tasks: this._allTasks(),
+            dayStr: this.dayStr(),
             color: this.sliceColorOverrides()[key] ?? null,
             defaultColor: this._defaultColorFor(key),
           },

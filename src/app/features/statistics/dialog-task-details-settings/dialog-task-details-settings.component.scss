@@ -1,0 +1,48 @@
+mat-dialog-content {
+  min-width: 360px;
+  max-width: 720px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-quarter);
+}
+
+.field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color-muted);
+}
+
+.field-input {
+  padding: var(--s-half) var(--s);
+  border: 1px solid var(--divider-color);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.field-hint {
+  margin: var(--s-quarter) 0 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-color-muted);
+}
+
+.color-field {
+  margin-top: var(--s2);
+}
+
+.color-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  margin-top: var(--s-quarter);
+
+  // The picker is a rounded trigger sized for its own form row; drop the row
+  // margin so it lines up with the reset button beside it.
+  input-color-picker {
+    margin-bottom: 0;
+  }
+}

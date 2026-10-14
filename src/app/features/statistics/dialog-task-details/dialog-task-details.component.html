@@ -1,4 +1,20 @@
-<h1 mat-dialog-title>{{ data.title }}</h1>
+<h1
+  mat-dialog-title
+  class="dialog-title"
+>
+  <span class="dialog-title-text">{{ name() }}</span>
+  <button
+    mat-icon-button
+    disableRipple
+    type="button"
+    class="dialog-title-settings"
+    [matTooltip]="T.MH.SETTINGS | translate"
+    [attr.aria-label]="T.MH.SETTINGS | translate"
+    (click)="openSettings()"
+  >
+    <mat-icon>settings</mat-icon>
+  </button>
+</h1>
 
 <mat-dialog-content>
   <section class="heatmap-section">
@@ -7,44 +23,69 @@
         [data]="heatmap"
         [showLegend]="false"
         [scrollToEnd]="true"
+        [selectedDateStr]="selectedDayStr()"
+        (dayClick)="onHeatmapDayClick($event)"
       />
     } @else {
       <p class="empty-state">{{ T.F.STATISTICS.NO_DATA | translate }}</p>
     }
   </section>
 
-  <label class="field">
-    <span class="field-label">{{ T.F.STATISTICS.NAME_LABEL | translate }}</span>
-    <input
-      class="field-input"
-      type="text"
-      spellcheck="false"
-      autocomplete="off"
-      [ngModel]="name()"
-      (ngModelChange)="name.set($event)"
-      [ngModelOptions]="{ standalone: true }"
-    />
-  </label>
-  <p class="field-hint">{{ T.F.STATISTICS.RENAME_HINT | translate }}</p>
+  @if (selectedDayStr()) {
+    <section class="roster-section">
+      <span class="field-label">
+        {{ T.F.STATISTICS.DAY_TASKS | translate }}
+      </span>
 
-  <div class="color-field">
-    <span class="field-label">{{ T.F.STATISTICS.COLORS_TITLE | translate }}</span>
-    <div class="color-controls">
-      <input-color-picker
-        [value]="color()"
-        (valueChange)="onColorChange($event)"
-      ></input-color-picker>
-      <button
-        mat-icon-button
-        type="button"
-        [matTooltip]="T.F.STATISTICS.RESET_COLOR | translate"
-        [attr.aria-label]="T.F.STATISTICS.RESET_COLOR | translate"
-        (click)="resetColor()"
-      >
-        <mat-icon>restart_alt</mat-icon>
-      </button>
-    </div>
-  </div>
+      @if (rosterEntries().length) {
+        <ul class="roster-list">
+          @for (entry of rosterEntries(); track entry.task.id) {
+            <li class="roster-item">
+              <button
+                mat-icon-button
+                disableRipple
+                type="button"
+                class="roster-settings"
+                [matTooltip]="T.F.STATISTICS.EDIT_DETAILS | translate"
+                [attr.aria-label]="T.F.STATISTICS.EDIT_DETAILS | translate"
+                (click)="openRosterDetail(entry)"
+              >
+                <mat-icon>settings</mat-icon>
+              </button>
+
+              <span class="roster-created">
+                {{ entry.task.created | localeDate: 'shortTime' }}
+              </span>
+
+              <span class="roster-detail">
+                <span
+                  class="roster-dot"
+                  [style.background]="color()"
+                ></span>
+                <span class="roster-detail-text">{{ entry.detail || '-' }}</span>
+              </span>
+
+              <span class="roster-time">{{ entry.timeSpent | msToString }}</span>
+
+              <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="T.F.STATISTICS.DELETE_DAY_TITLE | translate"
+                [attr.aria-label]="T.F.STATISTICS.DELETE_DAY_TITLE | translate"
+                (click)="deleteRosterEntry(entry, $event)"
+              >
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="empty-state">
+          {{ T.F.STATISTICS.NO_TASKS_FOR_DAY | translate }}
+        </p>
+      }
+    </section>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
